@@ -69,7 +69,7 @@ const accentMap = {
   },
 };
 
-export default function ModeSelector({ onSelect }) {
+export default function ModeSelector({ onSelect, onBack }) {
   return (
     <motion.div
       className="max-w-4xl mx-auto px-6"
@@ -77,6 +77,16 @@ export default function ModeSelector({ onSelect }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
     >
+      {onBack && (
+        <div className="mb-4">
+          <button
+            onClick={onBack}
+            className="text-slate-400 hover:text-white transition-colors cursor-pointer text-sm"
+          >
+            ← Change age group
+          </button>
+        </div>
+      )}
       <h2 className="text-2xl font-display font-bold text-center mb-2">
         Choose Debate Mode
       </h2>

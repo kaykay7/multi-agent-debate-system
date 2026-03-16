@@ -2,21 +2,25 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import LLMConfig from "./LLMConfig";
 
-const SUGGESTIONS = [
+const FALLBACK_SUGGESTIONS = [
   "Should AI be regulated by governments?",
   "Is remote work better than office work?",
-  "Should social media be banned for teenagers?",
-  "Will AI replace most human jobs within 20 years?",
   "Is space exploration worth the investment?",
-  "Should college education be free for everyone?",
 ];
+
+const AGE_LABELS = {
+  kids: "Kids (8–12)",
+  teens: "Teens (13–17)",
+  adults: "Adults (18+)",
+};
 
 const DEFAULT_CONFIG = { provider: "ollama", model: "", apiKey: "" };
 
-export default function DebateSetup({ mode, onStart, onBack }) {
+export default function DebateSetup({ mode, ageTier, onStart, onBack }) {
   const [topic, setTopic] = useState("");
   const [rounds, setRounds] = useState(3);
   const [ollamaModels, setOllamaModels] = useState([]);
+  const [suggestions, setSuggestions] = useState(FALLBACK_SUGGESTIONS);
 
   // same_llm
   const [config, setConfig] = useState({ ...DEFAULT_CONFIG });
@@ -40,16 +44,24 @@ export default function DebateSetup({ mode, onStart, onBack }) {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    fetch(`/api/suggestions/${ageTier || "adults"}`)
+      .then((r) => r.json())
+      .then((d) => setSuggestions(d.suggestions || FALLBACK_SUGGESTIONS))
+      .catch(() => {});
+  }, [ageTier]);
+
   const launch = () => {
     const t = topic.trim();
     if (!t) return;
 
+    const base = { mode, topic: t, rounds, age_tier: ageTier };
     if (mode === "same_llm") {
-      onStart({ mode, topic: t, rounds, config });
+      onStart({ ...base, config });
     } else if (mode === "diff_llm") {
-      onStart({ mode, topic: t, rounds, pro_config: proConfig, con_config: conConfig });
+      onStart({ ...base, pro_config: proConfig, con_config: conConfig });
     } else {
-      onStart({ mode, topic: t, rounds, human_side: humanSide, ai_config: aiConfig });
+      onStart({ ...base, human_side: humanSide, ai_config: aiConfig });
     }
   };
 
@@ -79,6 +91,9 @@ export default function DebateSetup({ mode, onStart, onBack }) {
           <div className="flex-1 text-center">
             <span className="text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
               {modeLabel}
+            </span>
+            <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-white/[0.06] text-slate-400">
+              {AGE_LABELS[ageTier] || ageTier}
             </span>
           </div>
           <div className="w-12" />
@@ -188,7 +203,7 @@ export default function DebateSetup({ mode, onStart, onBack }) {
         />
 
         <div className="mt-4 flex flex-wrap gap-2">
-          {SUGGESTIONS.map((s) => (
+          {suggestions.map((s) => (
             <button
               key={s}
               onClick={() => setTopic(s)}

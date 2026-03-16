@@ -1,3 +1,11 @@
+"""
+Multi-Agent Debate System — Agent Prompts
+Copyright (c) 2026 Kunal Kamdar. All Rights Reserved.
+Proprietary and confidential. See LICENSE for terms.
+"""
+
+from .guardrails import get_prompt_modifier
+
 MODERATOR_INTRO_PROMPT = """\
 You are a distinguished and charismatic debate moderator hosting a high-stakes \
 intellectual debate between two AI agents: "The Advocate" (arguing FOR) and \
@@ -59,3 +67,8 @@ Your summary must:
 Length: 3-4 paragraphs. Be fair, balanced, and insightful.
 Do NOT declare a "winner." Instead, illuminate what the audience should take away.\
 """
+
+
+def get_prompt(base_prompt: str, age_tier: str = "adults") -> str:
+    """Append the age-appropriate modifier to a base system prompt."""
+    return base_prompt + get_prompt_modifier(age_tier)

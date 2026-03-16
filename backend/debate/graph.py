@@ -28,11 +28,13 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph
 
+from .guardrails import check_content, sanitize_output
 from .prompts import (
     CON_AGENT_PROMPT,
     MODERATOR_INTRO_PROMPT,
     MODERATOR_SUMMARY_PROMPT,
     PRO_AGENT_PROMPT,
+    get_prompt,
 )
 
 # macOS voice assignments for each agent
@@ -125,21 +127,27 @@ def _get_speaker(config: RunnableConfig) -> Speaker | None:
     return config["configurable"].get("speaker")
 
 
-async def _stream_llm(llm, messages, ws, agent_id: str, speaker: Speaker | None = None) -> str:
-    """Call the LLM with streaming, push tokens over WebSocket, and speak
-    completed sentences via the macOS Speaker."""
+def _get_age_tier(config: RunnableConfig) -> str:
+    return config["configurable"].get("age_tier", "adults")
+
+
+async def _stream_llm(llm, messages, ws, agent_id: str,
+                       speaker: Speaker | None = None,
+                       age_tier: str = "adults") -> str:
+    """Call the LLM with streaming, push tokens over WebSocket, sanitize
+    output through age guardrails, and speak completed sentences."""
     full_text = ""
     sentence_buf = ""
 
     async for chunk in llm.astream(messages):
         token = chunk.content
         if token:
-            full_text += token
-            await ws.send_json({"type": "token", "agent": agent_id, "content": token})
+            safe_token = sanitize_output(token, age_tier)
+            full_text += safe_token
+            await ws.send_json({"type": "token", "agent": agent_id, "content": safe_token})
 
             if speaker:
-                sentence_buf += token
-                # Flush every complete sentence-like fragment
+                sentence_buf += safe_token
                 while True:
                     m = re.search(r"[.!?;:]\s", sentence_buf)
                     if not m:
@@ -150,21 +158,30 @@ async def _stream_llm(llm, messages, ws, agent_id: str, speaker: Speaker | None 
                     if sentence:
                         await speaker.speak(sentence, agent_id)
 
-    # Flush any remaining text
     if speaker and sentence_buf.strip():
         await speaker.speak(sentence_buf.strip(), agent_id)
 
     return full_text
 
 
-async def _human_turn(ws, agent: str, rnd: int) -> str:
-    """Pause the graph and wait for the human player's argument."""
+async def _human_turn(ws, agent: str, rnd: int, age_tier: str = "adults") -> str:
+    """Pause the graph and wait for the human player's argument.
+    Validates the input against age guardrails before accepting."""
     await ws.send_json({"type": "human_turn", "agent": agent, "round": rnd})
 
     while True:
         data = await ws.receive_json()
         if data.get("type") == "human_response":
             text = data.get("content", "").strip()
+            result = check_content(text, age_tier)
+            if not result["ok"]:
+                await ws.send_json({
+                    "type": "guardrail_block",
+                    "message": result["reason"],
+                    "agent": agent,
+                    "round": rnd,
+                })
+                continue
             break
 
     await ws.send_json(
@@ -186,6 +203,7 @@ async def moderator_intro(state: DebateState, config: RunnableConfig) -> dict:
     ws = config["configurable"]["websocket"]
     llm = _get_llm(config, "llm_moderator")
     speaker = _get_speaker(config)
+    age_tier = _get_age_tier(config)
 
     await ws.send_json(
         {"type": "agent_start", "agent": "moderator", "round": 0, "phase": "intro"}
@@ -193,12 +211,13 @@ async def moderator_intro(state: DebateState, config: RunnableConfig) -> dict:
     text = await _stream_llm(
         llm,
         [
-            SystemMessage(content=MODERATOR_INTRO_PROMPT),
+            SystemMessage(content=get_prompt(MODERATOR_INTRO_PROMPT, age_tier)),
             HumanMessage(content=f'The debate topic is: "{state["topic"]}"'),
         ],
         ws,
         "moderator",
         speaker,
+        age_tier,
     )
     await ws.send_json({"type": "agent_end", "agent": "moderator"})
 
@@ -214,9 +233,10 @@ async def pro_argument(state: DebateState, config: RunnableConfig) -> dict:
     ws = config["configurable"]["websocket"]
     rnd = state["current_round"]
     human_side = config["configurable"].get("human_side")
+    age_tier = _get_age_tier(config)
 
     if human_side == "pro":
-        text = await _human_turn(ws, "pro", rnd)
+        text = await _human_turn(ws, "pro", rnd, age_tier)
     else:
         llm = _get_llm(config, "llm_pro")
         speaker = _get_speaker(config)
@@ -235,7 +255,7 @@ async def pro_argument(state: DebateState, config: RunnableConfig) -> dict:
         text = await _stream_llm(
             llm,
             [
-                SystemMessage(content=PRO_AGENT_PROMPT),
+                SystemMessage(content=get_prompt(PRO_AGENT_PROMPT, age_tier)),
                 HumanMessage(
                     content=(
                         f'Topic: "{state["topic"]}"\n'
@@ -247,6 +267,7 @@ async def pro_argument(state: DebateState, config: RunnableConfig) -> dict:
             ws,
             "pro",
             speaker,
+            age_tier,
         )
         await ws.send_json({"type": "agent_end", "agent": "pro"})
 
@@ -261,9 +282,10 @@ async def con_argument(state: DebateState, config: RunnableConfig) -> dict:
     ws = config["configurable"]["websocket"]
     rnd = state["current_round"]
     human_side = config["configurable"].get("human_side")
+    age_tier = _get_age_tier(config)
 
     if human_side == "con":
-        text = await _human_turn(ws, "con", rnd)
+        text = await _human_turn(ws, "con", rnd, age_tier)
     else:
         llm = _get_llm(config, "llm_con")
         speaker = _get_speaker(config)
@@ -283,7 +305,7 @@ async def con_argument(state: DebateState, config: RunnableConfig) -> dict:
         text = await _stream_llm(
             llm,
             [
-                SystemMessage(content=CON_AGENT_PROMPT),
+                SystemMessage(content=get_prompt(CON_AGENT_PROMPT, age_tier)),
                 HumanMessage(
                     content=(
                         f'Topic: "{state["topic"]}"\n'
@@ -295,6 +317,7 @@ async def con_argument(state: DebateState, config: RunnableConfig) -> dict:
             ws,
             "con",
             speaker,
+            age_tier,
         )
         await ws.send_json({"type": "agent_end", "agent": "con"})
 
@@ -319,6 +342,7 @@ async def moderator_summary(state: DebateState, config: RunnableConfig) -> dict:
     ws = config["configurable"]["websocket"]
     llm = _get_llm(config, "llm_moderator")
     speaker = _get_speaker(config)
+    age_tier = _get_age_tier(config)
 
     await ws.send_json(
         {"type": "agent_start", "agent": "moderator", "round": 0, "phase": "summary"}
@@ -327,7 +351,7 @@ async def moderator_summary(state: DebateState, config: RunnableConfig) -> dict:
     text = await _stream_llm(
         llm,
         [
-            SystemMessage(content=MODERATOR_SUMMARY_PROMPT),
+            SystemMessage(content=get_prompt(MODERATOR_SUMMARY_PROMPT, age_tier)),
             HumanMessage(
                 content=(
                     f'Topic: "{state["topic"]}"\n\n'
@@ -339,6 +363,7 @@ async def moderator_summary(state: DebateState, config: RunnableConfig) -> dict:
         ws,
         "moderator",
         speaker,
+        age_tier,
     )
     await ws.send_json({"type": "agent_end", "agent": "moderator"})
 

@@ -23,6 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from debate.graph import Speaker, _HAS_SAY, build_debate_graph
+from debate.guardrails import TOPIC_SUGGESTIONS, check_content
 
 load_dotenv()
 
@@ -145,6 +146,12 @@ async def list_ollama_models():
         return {"models": [], "error": str(exc)}
 
 
+@app.get("/api/suggestions/{age_tier}")
+async def get_suggestions(age_tier: str):
+    suggestions = TOPIC_SUGGESTIONS.get(age_tier, TOPIC_SUGGESTIONS["adults"])
+    return {"age_tier": age_tier, "suggestions": suggestions}
+
+
 def _build_agent_info(mode, data):
     """Return (configurable_dict, agents_metadata) for the given mode."""
 
@@ -228,10 +235,21 @@ async def debate_ws(websocket: WebSocket):
         topic = data.get("topic", "").strip()
         max_rounds = min(max(int(data.get("rounds", 3)), 1), 5)
         mode = data.get("mode", "same_llm")
+        age_tier = data.get("age_tier", "adults")
+        if age_tier not in ("kids", "teens", "adults"):
+            age_tier = "adults"
 
         if not topic:
             await websocket.send_json(
                 {"type": "error", "message": "Please provide a debate topic."}
+            )
+            return
+
+        # Guardrail: check if the topic itself is appropriate for the age tier
+        topic_check = check_content(topic, age_tier)
+        if not topic_check["ok"]:
+            await websocket.send_json(
+                {"type": "error", "message": topic_check["reason"]}
             )
             return
 
@@ -242,6 +260,7 @@ async def debate_ws(websocket: WebSocket):
             return
 
         configurable["websocket"] = websocket
+        configurable["age_tier"] = age_tier
 
         # Server-side TTS via macOS `say`
         speaker = None

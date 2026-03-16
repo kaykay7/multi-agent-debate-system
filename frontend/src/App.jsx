@@ -1,15 +1,22 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ParticleBackground from "./components/ParticleBackground";
+import AgeGate from "./components/AgeGate";
 import ModeSelector from "./components/ModeSelector";
 import DebateSetup from "./components/DebateSetup";
 import DebateArena from "./components/DebateArena";
 import useDebateWebSocket from "./hooks/useDebateWebSocket";
 
 export default function App() {
-  const [step, setStep] = useState("mode"); // mode | setup | debate
+  const [step, setStep] = useState("age"); // age | mode | setup | debate
+  const [ageTier, setAgeTier] = useState(null);
   const [mode, setMode] = useState(null);
   const debate = useDebateWebSocket();
+
+  const handleAgeSelect = (tier) => {
+    setAgeTier(tier);
+    setStep("mode");
+  };
 
   const handleModeSelect = (m) => {
     setMode(m);
@@ -23,7 +30,8 @@ export default function App() {
 
   const handleReset = () => {
     debate.reset();
-    setStep("mode");
+    setStep("age");
+    setAgeTier(null);
     setMode(null);
   };
 
@@ -66,7 +74,7 @@ export default function App() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5, duration: 0.5 }}
           >
-            {["LangGraph", "Multi-Agent", "Real-time Streaming", "Multi-Provider"].map(
+            {["LangGraph", "Multi-Agent", "Real-time Streaming", "Guardrails"].map(
               (tag) => (
                 <span
                   key={tag}
@@ -81,15 +89,27 @@ export default function App() {
 
         {/* Steps */}
         <AnimatePresence mode="wait">
-          {step === "mode" && (
+          {step === "age" && (
             <motion.div
-              key="mode"
+              key="age"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, x: -40 }}
               transition={{ duration: 0.3 }}
             >
-              <ModeSelector onSelect={handleModeSelect} />
+              <AgeGate onSelect={handleAgeSelect} />
+            </motion.div>
+          )}
+
+          {step === "mode" && (
+            <motion.div
+              key="mode"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -40 }}
+              transition={{ duration: 0.3 }}
+            >
+              <ModeSelector onSelect={handleModeSelect} onBack={() => setStep("age")} />
             </motion.div>
           )}
 
@@ -103,6 +123,7 @@ export default function App() {
             >
               <DebateSetup
                 mode={mode}
+                ageTier={ageTier}
                 onStart={handleStart}
                 onBack={() => setStep("mode")}
               />

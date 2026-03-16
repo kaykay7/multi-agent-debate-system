@@ -10,6 +10,7 @@ const INITIAL_STATE = {
   currentPhase: null,
   isHumanTurn: false,
   humanTurnAgent: null,
+  guardrailMessage: null,
   messages: [],
   agents: null,
   error: null,
@@ -91,6 +92,16 @@ export default function useDebateWebSocket() {
             isHumanTurn: true,
             humanTurnAgent: data.agent,
             currentRound: data.round > 0 ? data.round : s.currentRound,
+            guardrailMessage: null,
+          }));
+          break;
+
+        case "guardrail_block":
+          setState((s) => ({
+            ...s,
+            isHumanTurn: true,
+            humanTurnAgent: data.agent,
+            guardrailMessage: data.message,
           }));
           break;
 
@@ -137,7 +148,7 @@ export default function useDebateWebSocket() {
   const sendHumanResponse = useCallback((content) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "human_response", content }));
-      setState((s) => ({ ...s, isHumanTurn: false, humanTurnAgent: null }));
+      setState((s) => ({ ...s, isHumanTurn: false, humanTurnAgent: null, guardrailMessage: null }));
     }
   }, []);
 

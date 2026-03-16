@@ -108,7 +108,7 @@ function MessageBubble({ msg, agentInfo, isActive }) {
   );
 }
 
-function HumanInput({ agent, round, onSubmit }) {
+function HumanInput({ agent, round, onSubmit, guardrailWarning }) {
   const [text, setText] = useState("");
   const inputRef = useRef(null);
 
@@ -155,6 +155,11 @@ function HumanInput({ agent, round, onSubmit }) {
                      placeholder-slate-500 focus:outline-none focus:border-indigo-500/40
                      resize-none h-28 transition-all"
         />
+        {guardrailWarning && (
+          <div className="mt-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
+            <p className="text-xs text-red-400">{guardrailWarning} Please revise your message.</p>
+          </div>
+        )}
         <div className="flex justify-end mt-3">
           <motion.button
             onClick={handleSubmit}
@@ -186,6 +191,7 @@ export default function DebateArena({ debate, onReset }) {
     error,
     isHumanTurn,
     humanTurnAgent,
+    guardrailMessage,
     agents: serverAgents,
     sendHumanResponse,
   } = debate;
@@ -283,6 +289,7 @@ export default function DebateArena({ debate, onReset }) {
           agent={humanTurnAgent}
           round={currentRound}
           onSubmit={sendHumanResponse}
+          guardrailWarning={guardrailMessage}
         />
       )}
 
