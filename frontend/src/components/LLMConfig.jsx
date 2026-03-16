@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 const PROVIDERS = [
   {
@@ -42,16 +42,18 @@ const PROVIDERS = [
     name: "Google",
     icon: "🔷",
     requiresKey: true,
-    models: ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
+    models: ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"],
     description: "Gemini",
   },
 ];
 
-export default function LLMConfig({ label, value, onChange, ollamaModels = [] }) {
+export default function LLMConfig({ label, value, onChange, ollamaModels = [], serverKeys = {} }) {
   const { provider, model, apiKey } = value;
   const providerInfo = PROVIDERS.find((p) => p.id === provider) || PROVIDERS[0];
   const modelList =
     provider === "ollama" ? ollamaModels : providerInfo.models;
+
+  const hasServerKey = !!serverKeys[provider];
 
   const update = (patch) => onChange({ ...value, ...patch });
 
@@ -117,15 +119,26 @@ export default function LLMConfig({ label, value, onChange, ollamaModels = [] })
 
       {/* API key input */}
       {providerInfo.requiresKey && (
-        <input
-          type="password"
-          placeholder={`${providerInfo.name} API key`}
-          value={apiKey}
-          onChange={(e) => update({ apiKey: e.target.value })}
-          className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2.5 text-xs
-                     text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/30
-                     focus:ring-1 focus:ring-indigo-500/20 transition-all"
-        />
+        <div>
+          <input
+            type="password"
+            placeholder={
+              hasServerKey
+                ? `${providerInfo.name} API key (optional — server key configured)`
+                : `${providerInfo.name} API key`
+            }
+            value={apiKey}
+            onChange={(e) => update({ apiKey: e.target.value })}
+            className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-3 py-2.5 text-xs
+                       text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/30
+                       focus:ring-1 focus:ring-indigo-500/20 transition-all"
+          />
+          {hasServerKey && !apiKey && (
+            <p className="text-[10px] text-emerald-400/70 mt-1.5 ml-1">
+              ✓ Server-side key available — leave blank to use it
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

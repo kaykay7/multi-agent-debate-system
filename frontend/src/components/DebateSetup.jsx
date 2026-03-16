@@ -21,6 +21,7 @@ export default function DebateSetup({ mode, ageTier, onStart, onBack }) {
   const [rounds, setRounds] = useState(3);
   const [ollamaModels, setOllamaModels] = useState([]);
   const [suggestions, setSuggestions] = useState(FALLBACK_SUGGESTIONS);
+  const [serverKeys, setServerKeys] = useState({});
 
   // same_llm
   const [config, setConfig] = useState({ ...DEFAULT_CONFIG });
@@ -41,6 +42,17 @@ export default function DebateSetup({ mode, ageTier, onStart, onBack }) {
     fetch("/api/ollama/models")
       .then((r) => r.json())
       .then((d) => setOllamaModels(d.models || []))
+      .catch(() => {});
+    fetch("/api/health")
+      .then((r) => r.json())
+      .then((d) => {
+        setServerKeys({
+          openai: d.openai_available,
+          google: d.google_available,
+          anthropic: d.anthropic_available,
+          ollama: d.ollama_available,
+        });
+      })
       .catch(() => {});
   }, []);
 
@@ -107,6 +119,7 @@ export default function DebateSetup({ mode, ageTier, onStart, onBack }) {
               value={config}
               onChange={setConfig}
               ollamaModels={ollamaModels}
+              serverKeys={serverKeys}
             />
           </div>
         )}
@@ -121,6 +134,7 @@ export default function DebateSetup({ mode, ageTier, onStart, onBack }) {
                 value={proConfig}
                 onChange={setProConfig}
                 ollamaModels={ollamaModels}
+                serverKeys={serverKeys}
               />
             </div>
             <div className="p-4 rounded-xl bg-red-500/[0.04] border border-red-500/10">
@@ -131,6 +145,7 @@ export default function DebateSetup({ mode, ageTier, onStart, onBack }) {
                 value={conConfig}
                 onChange={setConConfig}
                 ollamaModels={ollamaModels}
+                serverKeys={serverKeys}
               />
             </div>
           </div>
@@ -178,6 +193,7 @@ export default function DebateSetup({ mode, ageTier, onStart, onBack }) {
                 value={aiConfig}
                 onChange={setAiConfig}
                 ollamaModels={ollamaModels}
+                serverKeys={serverKeys}
               />
             </div>
           </div>
