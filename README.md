@@ -70,7 +70,7 @@ A real-time AI debate platform where multiple LLM-powered agents argue opposing 
 | Layer | Technology |
 |-------|-----------|
 | Multi-Agent Orchestration | LangGraph (StateGraph with conditional edges) |
-| LLM Provider | **Ollama** (local) or **OpenAI** (cloud) — switchable in the UI |
+| LLM Provider | **Ollama** (local), **OpenAI**, **Google Gemini**, **Anthropic**, **xAI/Grok** — switchable in the UI |
 | Backend | FastAPI + WebSocket |
 | Frontend | React 18 + Framer Motion + Tailwind CSS |
 | Streaming | Token-level WebSocket streaming |
@@ -120,6 +120,12 @@ npm run dev
 
 Open **http://localhost:5173** and start a debate!
 
+## Live Demo
+
+> **[Try it live](https://multi-agent-debate.onrender.com)** — hosted on Render with Google Gemini
+>
+> The free tier sleeps after 15 minutes of inactivity, so the first load may take ~30 seconds to wake up.
+
 ## How It Works
 
 1. **User enters a topic** — e.g., "Should AI be regulated by governments?"
@@ -139,7 +145,8 @@ multi-agent-debate-system/
 │   ├── main.py                 # FastAPI server + WebSocket endpoint
 │   ├── debate/
 │   │   ├── graph.py            # LangGraph state machine + streaming nodes
-│   │   └── prompts.py          # Agent system prompts / personalities
+│   │   ├── prompts.py          # Agent system prompts / personalities
+│   │   └── guardrails.py       # Age-based content filtering + suggestions
 │   ├── requirements.txt
 │   └── .env.example
 ├── frontend/
@@ -147,12 +154,18 @@ multi-agent-debate-system/
 │   │   ├── App.jsx             # Main app with state routing
 │   │   ├── components/
 │   │   │   ├── DebateArena.jsx # Live debate view + message bubbles
+│   │   │   ├── AgeGate.jsx     # Age-tier selection screen
+│   │   │   ├── DebateSetup.jsx # Topic + mode configuration
+│   │   │   ├── ModeSelector.jsx# Debate mode picker (AI v AI, AI v Human…)
 │   │   │   ├── AgentAvatar.jsx # Animated avatar with speaking indicators
-│   │   │   ├── TopicInput.jsx  # Topic selection + configuration
 │   │   │   └── ParticleBackground.jsx  # Canvas particle system
 │   │   └── hooks/
 │   │       └── useDebateWebSocket.js   # WebSocket state management
 │   └── public/avatars/         # AI-generated agent portraits
+├── build.sh                    # Cloud build script (frontend + backend)
+├── render.yaml                 # Render one-click deploy blueprint
+├── LICENSE                     # Proprietary license
+├── NOTICE                      # IP notice
 └── README.md
 ```
 
@@ -160,11 +173,14 @@ multi-agent-debate-system/
 
 | Environment Variable | Default | Description |
 |---------------------|---------|-------------|
-| `LLM_PROVIDER` | `ollama` | `ollama` (local) or `openai` (cloud) |
+| `LLM_PROVIDER` | `ollama` | `ollama`, `openai`, `google`, `anthropic`, or `xai` |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server address |
 | `OLLAMA_MODEL` | `llama3.2` | Default Ollama model |
-| `OPENAI_API_KEY` | — | Your OpenAI API key (when using OpenAI) |
+| `OPENAI_API_KEY` | — | Your OpenAI API key |
 | `OPENAI_MODEL` | `gpt-4o-mini` | Default OpenAI model |
+| `GOOGLE_API_KEY` | — | Google Gemini API key ([free tier](https://aistudio.google.com/apikey)) |
+| `ANTHROPIC_API_KEY` | — | Anthropic API key |
+| `XAI_API_KEY` | — | xAI/Grok API key |
 
 ## License
 

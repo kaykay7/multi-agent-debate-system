@@ -44,7 +44,13 @@ def _build_llm(provider: str, model: str, api_key: str = ""):
         )
 
     if not api_key:
-        api_key = os.getenv("OPENAI_API_KEY", "") if provider == "openai" else ""
+        env_map = {
+            "openai": "OPENAI_API_KEY",
+            "anthropic": "ANTHROPIC_API_KEY",
+            "xai": "XAI_API_KEY",
+            "google": "GOOGLE_API_KEY",
+        }
+        api_key = os.getenv(env_map.get(provider, ""), "")
     if not api_key:
         raise ValueError(f"API key is required for {provider}")
 
@@ -118,6 +124,8 @@ app.add_middleware(
 @app.get("/api/health")
 async def health_check():
     has_openai_key = bool(os.getenv("OPENAI_API_KEY"))
+    has_google_key = bool(os.getenv("GOOGLE_API_KEY"))
+    has_anthropic_key = bool(os.getenv("ANTHROPIC_API_KEY"))
     ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     ollama_ok = False
     try:
@@ -130,6 +138,8 @@ async def health_check():
         "status": "ok",
         "default_provider": os.getenv("LLM_PROVIDER", "ollama").lower(),
         "openai_available": has_openai_key,
+        "google_available": has_google_key,
+        "anthropic_available": has_anthropic_key,
         "ollama_available": ollama_ok,
     }
 
