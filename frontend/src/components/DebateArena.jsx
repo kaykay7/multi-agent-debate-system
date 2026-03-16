@@ -65,10 +65,24 @@ function ProgressBar({ current, max }) {
   );
 }
 
+const MAX_HEIGHT = 150;
+
 function MessageBubble({ msg, agentInfo, isActive }) {
   const style = AGENT_STYLE[msg.agent] || AGENT_STYLE.moderator;
   const isMod = msg.agent === "moderator";
   const isPro = msg.agent === "pro";
+
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const textRef = useRef(null);
+
+  useEffect(() => {
+    const el = textRef.current;
+    if (!el) return;
+    setOverflows(el.scrollHeight > MAX_HEIGHT + 8);
+    // Auto-scroll to bottom while streaming
+    if (isActive) el.scrollTop = el.scrollHeight;
+  }, [msg.content, isActive]);
 
   const phaseLabel =
     msg.phase === "intro"
@@ -77,9 +91,11 @@ function MessageBubble({ msg, agentInfo, isActive }) {
         ? "Final Summary"
         : `Round ${msg.round}`;
 
+  const capped = !expanded && overflows;
+
   return (
     <motion.div
-      layout
+      layout="position"
       initial={{ opacity: 0, y: 16, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.35, ease: "easeOut", delay: 0.05 }}
@@ -98,11 +114,50 @@ function MessageBubble({ msg, agentInfo, isActive }) {
           </span>
           <span className="text-[10px] text-slate-500">{phaseLabel}</span>
         </div>
-        <p
-          className={`text-[14px] leading-relaxed text-slate-200 whitespace-pre-wrap ${isActive ? "typing-cursor" : ""}`}
-        >
-          {msg.content}
-        </p>
+
+        <div className="relative">
+          {isActive && !msg.content && (
+            <div className="flex items-center gap-2 py-2">
+              <span className={`text-xs font-medium ${style.labelColor}`}>Generating</span>
+              <span className="flex gap-0.5">
+                {[0, 1, 2].map((i) => (
+                  <motion.span
+                    key={i}
+                    className={`inline-block w-1.5 h-1.5 rounded-full ${style.dotColor}`}
+                    animate={{ opacity: [0.3, 1, 0.3] }}
+                    transition={{ repeat: Infinity, duration: 1, delay: i * 0.2 }}
+                  />
+                ))}
+              </span>
+            </div>
+          )}
+          <div
+            ref={textRef}
+            style={{ maxHeight: capped ? MAX_HEIGHT : undefined }}
+            className={`${capped ? "overflow-hidden" : ""} ${isActive && !expanded ? "overflow-y-auto" : ""}
+              transition-[max-height] duration-300`}
+          >
+            <p
+              className="text-[14px] leading-relaxed text-slate-200 whitespace-pre-wrap"
+              style={isActive && !expanded ? { maxHeight: MAX_HEIGHT } : undefined}
+            >
+              {msg.content}
+            </p>
+          </div>
+
+          {capped && (
+            <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-[#0d1526] to-transparent pointer-events-none" />
+          )}
+        </div>
+
+        {overflows && (
+          <button
+            onClick={() => setExpanded((e) => !e)}
+            className={`mt-2 text-[11px] font-medium cursor-pointer transition-colors ${style.labelColor} hover:underline`}
+          >
+            {expanded ? "Show less ↑" : "Show more ↓"}
+          </button>
+        )}
       </div>
     </motion.div>
   );

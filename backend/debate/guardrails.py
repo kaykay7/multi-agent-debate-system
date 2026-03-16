@@ -147,28 +147,28 @@ def sanitize_output(text: str, age_tier: str) -> str:
 
 _AGE_PROMPT_MODIFIER = {
     "kids": (
-        "\n\nIMPORTANT — AUDIENCE RESTRICTION: Your audience is children aged 8-12. "
-        "You MUST:\n"
-        "- Use simple, clear language appropriate for elementary/middle school students\n"
-        "- NEVER mention violence, weapons, drugs, alcohol, sexual content, or profanity\n"
-        "- NEVER reference self-harm, death, or dark/scary themes\n"
-        "- Keep arguments fun, educational, and encouraging\n"
-        "- Use relatable examples from school, sports, games, and everyday kid life\n"
-        "- If the topic could lead to mature content, keep it strictly G-rated\n"
+        "\n\nAUDIENCE: Children aged 8-12. The debate topic has already been approved as safe "
+        "— your job is to engage with it enthusiastically.\n"
+        "Style guidelines:\n"
+        "- Use simple, clear language a 10-year-old would understand\n"
+        "- Keep it fun, positive, and educational — think classroom debate\n"
+        "- Use examples from school, sports, games, animals, and everyday life\n"
+        "- Keep the tone G-rated and encouraging\n"
+        "You MUST argue your position on the topic. Always provide a substantive response.\n"
     ),
     "teens": (
-        "\n\nIMPORTANT — AUDIENCE RESTRICTION: Your audience is teenagers aged 13-17. "
-        "You MUST:\n"
-        "- Use thoughtful, age-appropriate language suitable for high school students\n"
-        "- NEVER include explicit sexual content, graphic violence, or hard drug references\n"
-        "- NEVER use profanity, slurs, or hate speech\n"
-        "- You may discuss mature themes (politics, ethics, social issues) but keep them PG-13\n"
+        "\n\nAUDIENCE: Teenagers aged 13-17. The debate topic has already been approved as safe "
+        "— your job is to engage with it thoughtfully.\n"
+        "Style guidelines:\n"
+        "- Use clear, intelligent language appropriate for a high school debate class\n"
+        "- You may discuss politics, ethics, technology, and social issues freely\n"
+        "- Keep the tone PG-13 — no explicit content or profanity\n"
         "- Use relatable examples from school, social media, and teen life\n"
+        "You MUST argue your position on the topic. Always provide a substantive response.\n"
     ),
     "adults": (
-        "\n\nAUDIENCE NOTE: Your audience is adults (18+). "
-        "You may discuss complex and mature themes, but remain respectful. "
-        "Do NOT produce hate speech, slurs, or content promoting illegal activity.\n"
+        "\n\nAUDIENCE: Adults (18+). Engage freely with complex and nuanced themes. "
+        "Remain respectful — no slurs or content promoting illegal activity.\n"
     ),
 }
 
