@@ -1,0 +1,59 @@
+PROPRIETARY SOFTWARE LICENSE
+Copyright (c) 2026 Kunal Kamdar. All Rights Reserved.
+
+1. GRANT OF LICENSE
+   This software and associated documentation files (the "Software") are the
+   exclusive intellectual property of Kunal Kamdar ("Owner"). No license,
+   express or implied, is granted to any person or entity to use, copy, modify,
+   merge, publish, distribute, sublicense, sell, or otherwise exploit the
+   Software, in whole or in part, without the prior written consent of the
+   Owner.
+
+2. PERMITTED USE
+   The Software is made available in source form solely for the purpose of
+   private evaluation, portfolio review, and demonstration of the Owner's
+   technical capabilities. Viewing the source code on a hosted repository
+   (e.g., GitHub) does not constitute a grant of any rights beyond reading.
+
+3. RESTRICTIONS
+   Without the Owner's prior written permission, you may NOT:
+
+   a. Copy, fork, clone, download, or reproduce the Software for any purpose
+      other than personal, non-commercial review.
+   b. Use the Software, or any portion thereof, in any product, service,
+      application, or research — whether commercial or non-commercial.
+   c. Create derivative works based on the Software.
+   d. Distribute, sublicense, lease, lend, or transfer the Software to any
+      third party.
+   e. Remove, alter, or obscure any proprietary notices, labels, or marks
+      contained in the Software.
+   f. Use the Software to train, fine-tune, or evaluate machine learning
+      models or AI systems.
+   g. Reverse-engineer any compiled or obfuscated portion of the Software
+      beyond what is strictly permitted by applicable law.
+
+4. INTELLECTUAL PROPERTY
+   The architecture, design patterns, orchestration logic, user interface
+   designs, and novel integration methods embodied in this Software may be
+   subject to pending intellectual property protections. The Owner reserves
+   all rights to seek patent, trademark, or other IP protection at any time.
+
+5. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL
+   THE OWNER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING
+   FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE.
+
+6. TERMINATION
+   Any rights implicitly or explicitly granted herein terminate immediately
+   upon violation of any term of this License. Upon termination, you must
+   destroy all copies of the Software in your possession.
+
+7. GOVERNING LAW
+   This License shall be governed by and construed in accordance with the
+   laws of the United States of America and the State of California, without
+   regard to conflict of law principles.
+
+For licensing inquiries, commercial use, or collaboration proposals, contact:
+Kunal Kamdar — [kunalkamdar.7@gmail.com]

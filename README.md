@@ -1,5 +1,8 @@
 # Multi-Agent Debate System
 
+> **Proprietary Software** — Copyright (c) 2026 Kunal Kamdar. All Rights Reserved.
+> This project is **not** open source. See [LICENSE](./LICENSE) and [NOTICE](./NOTICE) for details.
+
 A real-time AI debate platform where multiple LLM-powered agents argue opposing perspectives on any topic, orchestrated by **LangGraph** with a live-streaming UI.
 
 https://github.com/user-attachments/assets/demo-placeholder
@@ -152,3 +155,13 @@ multi-agent-debate-system/
 | `OLLAMA_MODEL` | `llama3.2` | Default Ollama model |
 | `OPENAI_API_KEY` | — | Your OpenAI API key (when using OpenAI) |
 | `OPENAI_MODEL` | `gpt-4o-mini` | Default OpenAI model |
+
+## License
+
+This project is **proprietary software**. It is not licensed under any open-source license.
+
+You may view the source code for evaluation and portfolio review purposes only. You may **not** copy, modify, distribute, or use this code (or any derivative of it) in any product, service, or project — commercial or otherwise — without explicit written permission from the author.
+
+See [LICENSE](./LICENSE) for the full legal terms.
+
+Copyright (c) 2026 Kunal Kamdar. All Rights Reserved.

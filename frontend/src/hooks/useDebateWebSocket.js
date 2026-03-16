@@ -3,11 +3,15 @@ import { useCallback, useRef, useState } from "react";
 const INITIAL_STATE = {
   status: "idle", // idle | connecting | debating | complete | error
   topic: "",
+  mode: "same_llm",
   maxRounds: 0,
   currentRound: 0,
   currentAgent: null,
-  currentPhase: null, // intro | debate | summary
+  currentPhase: null,
+  isHumanTurn: false,
+  humanTurnAgent: null,
   messages: [],
+  agents: null,
   error: null,
 };
 
@@ -16,17 +20,16 @@ export default function useDebateWebSocket() {
   const wsRef = useRef(null);
   const contentRef = useRef("");
 
-  const startDebate = useCallback(
-    (topic, rounds = 3, provider = "ollama", model = "") => {
-      setState((s) => ({ ...s, status: "connecting" }));
+  const startDebate = useCallback((payload) => {
+    setState((s) => ({ ...s, status: "connecting" }));
 
-      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const ws = new WebSocket(`${proto}//${window.location.host}/ws/debate`);
-      wsRef.current = ws;
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(`${proto}//${window.location.host}/ws/debate`);
+    wsRef.current = ws;
 
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ topic, rounds, provider, model }));
-      };
+    ws.onopen = () => {
+      ws.send(JSON.stringify(payload));
+    };
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -38,6 +41,8 @@ export default function useDebateWebSocket() {
             status: "debating",
             topic: data.topic,
             maxRounds: data.rounds,
+            mode: data.mode,
+            agents: data.agents,
           }));
           break;
 
@@ -48,6 +53,8 @@ export default function useDebateWebSocket() {
             currentAgent: data.agent,
             currentPhase: data.phase || "debate",
             currentRound: data.round > 0 ? data.round : s.currentRound,
+            isHumanTurn: false,
+            humanTurnAgent: null,
             messages: [
               ...s.messages,
               {
@@ -78,6 +85,15 @@ export default function useDebateWebSocket() {
           setState((s) => ({ ...s, currentAgent: null, currentPhase: null }));
           break;
 
+        case "human_turn":
+          setState((s) => ({
+            ...s,
+            isHumanTurn: true,
+            humanTurnAgent: data.agent,
+            currentRound: data.round > 0 ? data.round : s.currentRound,
+          }));
+          break;
+
         case "debate_end":
           setState((s) => ({ ...s, status: "complete", currentAgent: null }));
           ws.close();
@@ -103,7 +119,7 @@ export default function useDebateWebSocket() {
       }));
     };
 
-    ws.onclose = (event) => {
+    ws.onclose = () => {
       setState((prev) => {
         if (prev.status === "debating" || prev.status === "connecting") {
           return {
@@ -116,9 +132,14 @@ export default function useDebateWebSocket() {
         return prev;
       });
     };
-    },
-    [],
-  );
+  }, []);
+
+  const sendHumanResponse = useCallback((content) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "human_response", content }));
+      setState((s) => ({ ...s, isHumanTurn: false, humanTurnAgent: null }));
+    }
+  }, []);
 
   const reset = useCallback(() => {
     if (wsRef.current) {
@@ -128,5 +149,5 @@ export default function useDebateWebSocket() {
     setState(INITIAL_STATE);
   }, []);
 
-  return { ...state, startDebate, reset };
+  return { ...state, startDebate, sendHumanResponse, reset };
 }

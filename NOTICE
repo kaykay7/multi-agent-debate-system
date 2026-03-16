@@ -1,0 +1,55 @@
+NOTICE — Multi-Agent Debate System
+====================================
+
+Copyright (c) 2026 Kunal Kamdar. All Rights Reserved.
+
+This project is proprietary software. It is NOT open source.
+See the LICENSE file for the full terms governing use of this software.
+
+
+INTELLECTUAL PROPERTY NOTICE
+-----------------------------
+The Multi-Agent Debate System, including but not limited to:
+
+  - The multi-mode debate orchestration architecture (same-model,
+    cross-model, and human-vs-AI debate modes)
+  - The real-time LLM token streaming pipeline with server-side
+    text-to-speech integration
+  - The LangGraph-based multi-agent state graph design with per-agent
+    LLM routing, human-in-the-loop pause/resume, and live moderation
+  - The dynamic multi-provider configuration system allowing users to
+    pit different AI providers against each other in real-time debate
+  - The frontend debate arena interface with agent avatars, streaming
+    message rendering, and voice synthesis
+
+represents original work by Kunal Kamdar. The Owner reserves the right
+to pursue patent, trademark, or other intellectual property protections
+for the novel methods and systems described herein.
+
+
+THIRD-PARTY COMPONENTS
+-----------------------
+This project incorporates the following open-source libraries, each
+governed by their respective licenses:
+
+  Backend:
+    - Python (PSF License)
+    - FastAPI (MIT License)
+    - LangChain / LangGraph (MIT License)
+    - Uvicorn (BSD License)
+
+  Frontend:
+    - React (MIT License)
+    - Vite (MIT License)
+    - Tailwind CSS (MIT License)
+    - Framer Motion (MIT License)
+
+The use of these libraries does not imply that this project itself is
+open source. The original code, architecture, and design of this project
+remain the exclusive property of Kunal Kamdar.
+
+
+CONTACT
+--------
+For inquiries regarding licensing, commercial use, or collaboration:
+Kunal Kamdar — [kunalkamdar.7@gmail.com]

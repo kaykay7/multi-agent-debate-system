@@ -1,19 +1,27 @@
 """
+Multi-Agent Debate System — Orchestration Graph
+Copyright (c) 2026 Kunal Kamdar. All Rights Reserved.
+Proprietary and confidential. See LICENSE for terms.
+
 LangGraph multi-agent debate orchestration.
+
+Supports three modes:
+  - same_llm:    Both agents share one model
+  - diff_llm:    Each agent uses its own model (e.g. GPT-4o vs Claude)
+  - human_vs_ai: One side is a live human player
 
 Graph topology:
 
-  moderator_intro ─► pro_argument ─► con_argument ─► increment_round
-                        ▲                                   │
-                        │         ┌─────────────────────────┤
-                        │         │ (current_round ≤ max)   │ (current_round > max)
-                        └─────────┘                         ▼
-                                                    moderator_summary ─► END
-
-Each node streams LLM tokens to the client over WebSocket in real time.
+  moderator_intro -> pro_argument -> con_argument -> increment_round
+                        ^                                  |
+                        |        (round <= max)            |  (round > max)
+                        +----------------------------------+-------> moderator_summary -> END
 """
 
+import asyncio
 import operator
+import re
+import shutil
 from typing import Annotated, TypedDict
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -26,6 +34,71 @@ from .prompts import (
     MODERATOR_SUMMARY_PROMPT,
     PRO_AGENT_PROMPT,
 )
+
+# macOS voice assignments for each agent
+_VOICE_MAP = {
+    "moderator": "Daniel",
+    "pro": "Fred",
+    "con": "Karen",
+}
+
+_HAS_SAY = shutil.which("say") is not None
+
+
+class Speaker:
+    """Queued TTS using macOS `say`. Sentences are spoken sequentially so they
+    don't overlap. All operations are non-blocking for the caller."""
+
+    def __init__(self):
+        self._queue: asyncio.Queue = asyncio.Queue()
+        self._task: asyncio.Task | None = None
+        self._proc: asyncio.subprocess.Process | None = None
+
+    def start(self):
+        self._task = asyncio.create_task(self._worker())
+
+    async def _worker(self):
+        while True:
+            item = await self._queue.get()
+            if item is None:
+                break
+            text, voice = item
+            try:
+                self._proc = await asyncio.create_subprocess_exec(
+                    "say", "-v", voice, "--", text,
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL,
+                )
+                await self._proc.wait()
+            except Exception:
+                pass
+            finally:
+                self._proc = None
+
+    async def speak(self, text: str, agent: str = "moderator"):
+        voice = _VOICE_MAP.get(agent, "Fred")
+        await self._queue.put((text, voice))
+
+    async def cancel(self):
+        while not self._queue.empty():
+            try:
+                self._queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+        if self._proc and self._proc.returncode is None:
+            try:
+                self._proc.kill()
+            except Exception:
+                pass
+
+    async def stop(self):
+        await self.cancel()
+        await self._queue.put(None)
+        if self._task:
+            try:
+                await asyncio.wait_for(self._task, timeout=5)
+            except asyncio.TimeoutError:
+                self._task.cancel()
 
 
 class DebateState(TypedDict):
@@ -48,15 +121,62 @@ def _format_history(messages: list[dict]) -> str:
     return "\n\n---\n\n".join(parts)
 
 
-async def _stream_llm(llm, messages, ws, agent_id: str) -> str:
-    """Call the LLM with streaming and push every token over the WebSocket."""
+def _get_speaker(config: RunnableConfig) -> Speaker | None:
+    return config["configurable"].get("speaker")
+
+
+async def _stream_llm(llm, messages, ws, agent_id: str, speaker: Speaker | None = None) -> str:
+    """Call the LLM with streaming, push tokens over WebSocket, and speak
+    completed sentences via the macOS Speaker."""
     full_text = ""
+    sentence_buf = ""
+
     async for chunk in llm.astream(messages):
         token = chunk.content
         if token:
             full_text += token
             await ws.send_json({"type": "token", "agent": agent_id, "content": token})
+
+            if speaker:
+                sentence_buf += token
+                # Flush every complete sentence-like fragment
+                while True:
+                    m = re.search(r"[.!?;:]\s", sentence_buf)
+                    if not m:
+                        break
+                    end = m.end()
+                    sentence = sentence_buf[:end].strip()
+                    sentence_buf = sentence_buf[end:]
+                    if sentence:
+                        await speaker.speak(sentence, agent_id)
+
+    # Flush any remaining text
+    if speaker and sentence_buf.strip():
+        await speaker.speak(sentence_buf.strip(), agent_id)
+
     return full_text
+
+
+async def _human_turn(ws, agent: str, rnd: int) -> str:
+    """Pause the graph and wait for the human player's argument."""
+    await ws.send_json({"type": "human_turn", "agent": agent, "round": rnd})
+
+    while True:
+        data = await ws.receive_json()
+        if data.get("type") == "human_response":
+            text = data.get("content", "").strip()
+            break
+
+    await ws.send_json(
+        {"type": "agent_start", "agent": agent, "round": rnd, "phase": "debate"}
+    )
+    await ws.send_json({"type": "token", "agent": agent, "content": text})
+    await ws.send_json({"type": "agent_end", "agent": agent})
+    return text
+
+
+def _get_llm(config: RunnableConfig, key: str):
+    return config["configurable"][key]
 
 
 # ── Graph nodes ──────────────────────────────────────────────────────────────
@@ -64,12 +184,12 @@ async def _stream_llm(llm, messages, ws, agent_id: str) -> str:
 
 async def moderator_intro(state: DebateState, config: RunnableConfig) -> dict:
     ws = config["configurable"]["websocket"]
-    llm = config["configurable"]["llm"]
+    llm = _get_llm(config, "llm_moderator")
+    speaker = _get_speaker(config)
 
     await ws.send_json(
         {"type": "agent_start", "agent": "moderator", "round": 0, "phase": "intro"}
     )
-
     text = await _stream_llm(
         llm,
         [
@@ -78,8 +198,8 @@ async def moderator_intro(state: DebateState, config: RunnableConfig) -> dict:
         ],
         ws,
         "moderator",
+        speaker,
     )
-
     await ws.send_json({"type": "agent_end", "agent": "moderator"})
 
     return {
@@ -92,40 +212,43 @@ async def moderator_intro(state: DebateState, config: RunnableConfig) -> dict:
 
 async def pro_argument(state: DebateState, config: RunnableConfig) -> dict:
     ws = config["configurable"]["websocket"]
-    llm = config["configurable"]["llm"]
     rnd = state["current_round"]
+    human_side = config["configurable"].get("human_side")
 
-    await ws.send_json(
-        {"type": "agent_start", "agent": "pro", "round": rnd, "phase": "debate"}
-    )
-
-    history = _format_history(state["messages"])
-    instruction = (
-        "Present your opening argument FOR the topic. Make it compelling and well-structured."
-        if rnd == 1
-        else (
-            "Respond to The Skeptic's latest arguments. Counter their points and "
-            "strengthen your position FOR the topic with new evidence and reasoning."
+    if human_side == "pro":
+        text = await _human_turn(ws, "pro", rnd)
+    else:
+        llm = _get_llm(config, "llm_pro")
+        speaker = _get_speaker(config)
+        await ws.send_json(
+            {"type": "agent_start", "agent": "pro", "round": rnd, "phase": "debate"}
         )
-    )
-
-    text = await _stream_llm(
-        llm,
-        [
-            SystemMessage(content=PRO_AGENT_PROMPT),
-            HumanMessage(
-                content=(
-                    f'Topic: "{state["topic"]}"\n'
-                    f"Round {rnd} of {state['max_rounds']}\n\n"
-                    f"Debate transcript so far:\n{history}\n\n{instruction}"
-                )
-            ),
-        ],
-        ws,
-        "pro",
-    )
-
-    await ws.send_json({"type": "agent_end", "agent": "pro"})
+        history = _format_history(state["messages"])
+        instruction = (
+            "Present your opening argument FOR the topic. Make it compelling and well-structured."
+            if rnd == 1
+            else (
+                "Respond to The Skeptic's latest arguments. Counter their points and "
+                "strengthen your position FOR the topic with new evidence and reasoning."
+            )
+        )
+        text = await _stream_llm(
+            llm,
+            [
+                SystemMessage(content=PRO_AGENT_PROMPT),
+                HumanMessage(
+                    content=(
+                        f'Topic: "{state["topic"]}"\n'
+                        f"Round {rnd} of {state['max_rounds']}\n\n"
+                        f"Debate transcript so far:\n{history}\n\n{instruction}"
+                    )
+                ),
+            ],
+            ws,
+            "pro",
+            speaker,
+        )
+        await ws.send_json({"type": "agent_end", "agent": "pro"})
 
     return {
         "messages": [
@@ -136,41 +259,44 @@ async def pro_argument(state: DebateState, config: RunnableConfig) -> dict:
 
 async def con_argument(state: DebateState, config: RunnableConfig) -> dict:
     ws = config["configurable"]["websocket"]
-    llm = config["configurable"]["llm"]
     rnd = state["current_round"]
+    human_side = config["configurable"].get("human_side")
 
-    await ws.send_json(
-        {"type": "agent_start", "agent": "con", "round": rnd, "phase": "debate"}
-    )
-
-    history = _format_history(state["messages"])
-    instruction = (
-        "Present your opening argument AGAINST the topic. Challenge the premise "
-        "and present compelling counter-evidence."
-        if rnd == 1
-        else (
-            "Respond to The Advocate's latest arguments. Dismantle their points and "
-            "strengthen your position AGAINST the topic with new counter-arguments."
+    if human_side == "con":
+        text = await _human_turn(ws, "con", rnd)
+    else:
+        llm = _get_llm(config, "llm_con")
+        speaker = _get_speaker(config)
+        await ws.send_json(
+            {"type": "agent_start", "agent": "con", "round": rnd, "phase": "debate"}
         )
-    )
-
-    text = await _stream_llm(
-        llm,
-        [
-            SystemMessage(content=CON_AGENT_PROMPT),
-            HumanMessage(
-                content=(
-                    f'Topic: "{state["topic"]}"\n'
-                    f"Round {rnd} of {state['max_rounds']}\n\n"
-                    f"Debate transcript so far:\n{history}\n\n{instruction}"
-                )
-            ),
-        ],
-        ws,
-        "con",
-    )
-
-    await ws.send_json({"type": "agent_end", "agent": "con"})
+        history = _format_history(state["messages"])
+        instruction = (
+            "Present your opening argument AGAINST the topic. Challenge the premise "
+            "and present compelling counter-evidence."
+            if rnd == 1
+            else (
+                "Respond to The Advocate's latest arguments. Dismantle their points and "
+                "strengthen your position AGAINST the topic with new counter-arguments."
+            )
+        )
+        text = await _stream_llm(
+            llm,
+            [
+                SystemMessage(content=CON_AGENT_PROMPT),
+                HumanMessage(
+                    content=(
+                        f'Topic: "{state["topic"]}"\n'
+                        f"Round {rnd} of {state['max_rounds']}\n\n"
+                        f"Debate transcript so far:\n{history}\n\n{instruction}"
+                    )
+                ),
+            ],
+            ws,
+            "con",
+            speaker,
+        )
+        await ws.send_json({"type": "agent_end", "agent": "con"})
 
     return {
         "messages": [
@@ -191,12 +317,12 @@ def should_continue(state: DebateState) -> str:
 
 async def moderator_summary(state: DebateState, config: RunnableConfig) -> dict:
     ws = config["configurable"]["websocket"]
-    llm = config["configurable"]["llm"]
+    llm = _get_llm(config, "llm_moderator")
+    speaker = _get_speaker(config)
 
     await ws.send_json(
         {"type": "agent_start", "agent": "moderator", "round": 0, "phase": "summary"}
     )
-
     history = _format_history(state["messages"])
     text = await _stream_llm(
         llm,
@@ -212,8 +338,8 @@ async def moderator_summary(state: DebateState, config: RunnableConfig) -> dict:
         ],
         ws,
         "moderator",
+        speaker,
     )
-
     await ws.send_json({"type": "agent_end", "agent": "moderator"})
 
     return {
