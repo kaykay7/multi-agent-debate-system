@@ -5,7 +5,17 @@
 
 A real-time AI debate platform where multiple LLM-powered agents argue opposing perspectives on any topic, orchestrated by **LangGraph** with a live-streaming UI.
 
+<p align="center">
+  <img src="assets/banner.png" alt="Multi-Agent Debate System" width="100%" />
+</p>
 
+### Screenshots
+
+<p align="center">
+  <img src="assets/screenshot-mode-select.png" alt="Choose Debate Mode" width="48%" />
+  &nbsp;&nbsp;
+  <img src="assets/screenshot-human-vs-ai.png" alt="Human vs AI Setup" width="48%" />
+</p>
 
 ## Highlights
 
