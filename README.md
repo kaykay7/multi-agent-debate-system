@@ -5,7 +5,7 @@
 
 A real-time AI debate platform where multiple LLM-powered agents argue opposing perspectives on any topic, orchestrated by **LangGraph** with a live-streaming UI.
 
-https://github.com/user-attachments/assets/demo-placeholder
+
 
 ## Highlights
 
