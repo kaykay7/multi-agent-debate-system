@@ -122,7 +122,7 @@ Open **http://localhost:5173** and start a debate!
 
 ## Live Demo
 
-> **[Try it live](https://multi-agent-debate.onrender.com)** — hosted on Render with Google Gemini
+> **[Try it live](https://multi-agent-debate-system-fwyr.onrender.com)** — hosted on Render with Google Gemini
 >
 > The free tier sleeps after 15 minutes of inactivity, so the first load may take ~30 seconds to wake up.
 
